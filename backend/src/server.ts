@@ -37,8 +37,16 @@ app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
+// Serve static files from Angular app
+app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+
 // Routes
 app.use('/api/csv', csvRoutes);
+
+// Serve Angular app for all other routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
+});
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

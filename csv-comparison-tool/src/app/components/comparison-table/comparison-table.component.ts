@@ -1,6 +1,6 @@
-import { Component, EventEmitter, Input, Output, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, ViewChild, ViewEncapsulation, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatTableModule, MatTable } from '@angular/material/table';
+import { MatTableModule, MatTable, MatTableDataSource } from '@angular/material/table';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSortModule, MatSort } from '@angular/material/sort';
@@ -99,7 +99,7 @@ interface ColumnChange {
           </tr>
         </table>
 
-        <mat-card class="no-data" *ngIf="!dataSource.length">
+        <mat-card class="no-data" *ngIf="!dataSource.data.length">
           <mat-card-content>
             <p>No comparison data available</p>
             <p class="sub-text">Upload CSV files to start comparing</p>
@@ -197,7 +197,7 @@ interface ColumnChange {
     }
   `]
 })
-export class ComparisonTableComponent implements OnInit {
+export class ComparisonTableComponent implements OnInit, AfterViewInit {
   @Input() set comparisonData(data: ComparisonData) {
     if (data) {
       this.processComparisonData(data);
@@ -210,17 +210,19 @@ export class ComparisonTableComponent implements OnInit {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatTable) table!: MatTable<TableRow>;
 
-  dataSource: TableRow[] = [];
+  dataSource: MatTableDataSource<TableRow>;
   selection = new SelectionModel<TableRow>(true, []);
   columnDefinitions: string[] = [];
   displayedColumns: string[] = [];
   allDisplayedColumns: string[] = ['select', 'status'];
 
-  get visibleColumns(): ColumnDefinition[] {
-    return this.columnDefinitions.map(col => ({
-      name: col,
-      visible: this.displayedColumns.includes(col)
-    }));
+  constructor() {
+    this.dataSource = new MatTableDataSource<TableRow>([]);
+  }
+
+  ngAfterViewInit() {
+    this.dataSource.paginator = this.paginator;
+    this.dataSource.sort = this.sort;
   }
 
   ngOnInit() {
@@ -274,7 +276,7 @@ export class ComparisonTableComponent implements OnInit {
       rows.push(tableRow);
     });
 
-    this.dataSource = rows;
+    this.dataSource.data = rows;
     this.updateColumnDefinitions(rows);
   }
 
@@ -294,19 +296,19 @@ export class ComparisonTableComponent implements OnInit {
 
   isAllSelected() {
     const numSelected = this.selection.selected.length;
-    const numRows = this.dataSource.filter(row => row._status !== 'unchanged').length;
+    const numRows = this.dataSource.data.filter(row => row._status !== 'unchanged').length;
     return numSelected === numRows;
   }
 
   isIndeterminate() {
     const numSelected = this.selection.selected.length;
-    const numRows = this.dataSource.filter(row => row._status !== 'unchanged').length;
+    const numRows = this.dataSource.data.filter(row => row._status !== 'unchanged').length;
     return numSelected > 0 && numSelected < numRows;
   }
 
   toggleAllRows(checked: boolean) {
     if (checked) {
-      const selectableRows = this.dataSource.filter(row => row._status !== 'unchanged');
+      const selectableRows = this.dataSource.data.filter(row => row._status !== 'unchanged');
       this.selection.select(...selectableRows);
     } else {
       this.selection.clear();
@@ -349,5 +351,12 @@ export class ComparisonTableComponent implements OnInit {
   private generateRowId(row: CsvRow): string {
     const firstKey = Object.keys(row)[0];
     return (row as any)[firstKey]?.toString() || Math.random().toString(36).substr(2, 9);
+  }
+
+  get visibleColumns(): ColumnDefinition[] {
+    return this.columnDefinitions.map(col => ({
+      name: col,
+      visible: this.displayedColumns.includes(col)
+    }));
   }
 }
